@@ -13,9 +13,9 @@ It also works quite well with the Alexa App
 <img src="alexa_app1.jpg" height="250"> <img src="alexa_app2.jpg" height="250"> <img src="alexa_app3.jpg" height="250">
 -----
 This is set up to be hosted in lambda. and requires 3 Environment variables to allow access to idreatek web server.
-HOST_IP = exposed IP address
-HOST_UNAME = idratek web username (must have web API permissions to objects)
-HOST_UPASS = password
++ HOST_IP = exposed IP address
++ HOST_UNAME = idratek web username (must have web API permissions to objects)
++ HOST_UPASS = password
 
 Log in to the Alexa developer console
 Create a new skill (smart home)
