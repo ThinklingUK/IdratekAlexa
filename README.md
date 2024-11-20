@@ -9,7 +9,7 @@ Deals with disovery, status and supports commands like:
 "Alexa, set the study to 18 degrees"
 
 It also works quite well with the Alexa App
-![Alexa App](blob/main/alexa_app1.jpg) "These are all Idratek objects")
+![Alexa App](alexa_app1.jpg) "These are all Idratek objects")
 
 
 This is set up to be hosted in lambda. and requires 3 Environment variables to allow access to idreatek web server.
