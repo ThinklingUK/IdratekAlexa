@@ -9,8 +9,9 @@ Deals with disovery, status and supports commands like:
 "Alexa, set the study to 18 degrees"
 
 It also works quite well with the Alexa App
-<img src="alexa_app1.jpg" width="150"> <img src="alexa_app2.jpg" width="150"> <img src="alexa_app3.jpg" width="150">
-
+----
+<img src="alexa_app1.jpg" height="250"> <img src="alexa_app2.jpg" height="250"> <img src="alexa_app3.jpg" height="250">
+-----
 This is set up to be hosted in lambda. and requires 3 Environment variables to allow access to idreatek web server.
 HOST_IP = exposed IP address
 HOST_UNAME = idratek web username (must have web API permissions to objects)
