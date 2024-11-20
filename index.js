@@ -55,10 +55,10 @@ function generateResponse(name, payload) {
 
 
 /**
- * Generate a response message
+ * Generate a response context
  *
  * @param {string} name - Directive name
- * @returns {Object} Response object
+ * @returns {Object} Properties object
  */
 function generateContext(namespace, name, value) {
     return {
@@ -168,6 +168,12 @@ function doHttpReqProm(reqType, command) {
 }
 
 
+/**
+ * Deal with the reply from a cortex API Objects call as part of discovery
+ *
+ * @param {string} objlist - Get or POST
+ * @returns {Object} devArr - array of devices
+ */
 
 function handleObjList(objlist) {
     var parsed = JSON.parse(objlist);
@@ -198,6 +204,8 @@ function handleObjList(objlist) {
 }
 
 
+
+// potentially could pass additional values, e.g. relevant ports, but currently not investigated
 function handleLightObj(obj) {
 
     return {
@@ -374,13 +382,13 @@ function getState(applianceId) {
     log('DEBUG', `getState (applianceId: ${applianceId})`);
     const CRequest = doHttpReqProm("GET",`Ports.json/${applianceId}/13`);
     return CRequest
-        .then(handleObjState)
+        .then(handleLightObjState)
         .catch(handleErrors);
 }
 
 //deal with state dependent on device type
 //NB: this is primarily for light
-function handleObjState(state) {
+function handleLightObjState(state) {
     log('DEBUG', `handleState : ${state}`);
     let parsed = JSON.parse(state);
     let val = parsed["CortexAPI"]["PortEvent"]["Value"];
@@ -611,9 +619,8 @@ function handleControl(request, callback) {
         }
         
 
-/*        
-no longer used
-
+        /*        
+        no longer used
         case 'AdjustBrightness': {
             const delta = request.directive.payload.brightnessDelta.value;
             if (!delta) {
@@ -716,7 +723,7 @@ function handleQuery(request, callback) {
             case 'IdratekDimmer1':  //13: brightness level
                 doHttpReqProm("GET",`Ports/${applianceId}/13`)
                 .then(function(reply){ //ensure function does not run ahead until details recieved
-                    context = handleObjState(reply);
+                    context = handleLightObjState(reply);
                     event=generateEvent("StateReport", applianceId, userAccessToken,correlationToken,{});
                     log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
                     callback(null, {context,event});
