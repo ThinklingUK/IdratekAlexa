@@ -120,6 +120,7 @@ function generateEvent(name, endpointId, token, payload) {
  */
  
 /* this is a promise - must reject or resolve */
+/* command can be Objects, Ports or Properties */
 function doHttpReqProm(reqType, command) {
     return new Promise (function (resolve,reject){
     var http = require('http');
@@ -177,15 +178,16 @@ function handleObjList(objlist) {
         switch (objArr[i]["ControlObjectType"]) {
         case 'IdratekDimmer1':
             //lighting control identified
-            devArr.push(handleObj(objArr[i]));
+            devArr.push(handleLightObj(objArr[i]));
             break;
 
         case 'HVAC':
             //this is a temp control
+            devArr.push(handleThermObj(objArr[i]));
             break;
 
         case 'Temperature':
-            //this is a temp reading
+            devArr.push(handleTempObj(objArr[i]));
             break;
 
         default: 
@@ -196,45 +198,151 @@ function handleObjList(objlist) {
 }
 
 
-function handleObj(obj) {
+function handleLightObj(obj) {
 
-        return {
-            endpointId:obj.IDNumber,
-            manufacturerName:"Idratek",
-            version: '1.0',
-            friendlyName:obj.FriendlyName,
-            description:obj.FriendlyName + " on Idratek",
-            displayCategories: [
-                "LIGHT"
-            ],
-            capabilities:[{
-                type: "AlexaInterface",
-                interface: "Alexa.PowerController",
-                version: "3",
-                properties: {
-                    supported: [{
-                        name: "powerState"
-                    }],
-                    proactivelyReportable: true,
-                    retrievable: true
-                }
+    return {
+        endpointId:obj.IDNumber,
+        manufacturerName:"Idratek",
+        version: '1.0',
+        friendlyName:obj.FriendlyName,
+        description:obj.FriendlyName + " on Idratek",
+        displayCategories: [
+            "LIGHT"
+        ],
+        capabilities:[{
+            type: "AlexaInterface",
+            interface: "Alexa.PowerController",
+            version: "3",
+            properties: {
+                supported: [{
+                    name: "powerState"
+                }],
+                proactivelyReported: true,
+                retrievable: true
+            }
+        },
+        {
+            type: "AlexaInterface",
+            interface: "Alexa.BrightnessController",
+            version: "3",
+            properties: {
+                supported: [{
+                    name: "brightness"
+                }],
+                proactivelyReported: true,
+                retrievable: true
+            }
+        }],
+        // not used at this time
+        cookie: {
             },
-            {
-                type: "AlexaInterface",
-                interface: "Alexa.BrightnessController",
-                version: "3",
-                properties: {
-                    supported: [{
-                        name: "brightness"
-                    }],
-                    proactivelyReportable: true,
-                    retrievable: true
-                }
-            }],
-            // not used at this time
-            cookie: {
+        };
+}
+
+
+function handleTempObj(obj) {
+
+    return {
+        endpointId:obj.IDNumber,
+        manufacturerName:"Idratek",
+        version: '1.0',
+        friendlyName:obj.FriendlyName,
+        description:obj.FriendlyName + " on Idratek",
+        displayCategories: [
+            "TEMPERATURE_SENSOR"
+        ],
+        capabilities:[{
+            type: "AlexaInterface",
+            interface: "Alexa.TemperatureSensor",
+            version: "3",
+            properties: {
+                supported: [{
+                    name: "temperature"
+                }],
+                proactivelyReported: true,
+                retrievable: true
+            }
+        },
+        {
+      "type": "AlexaInterface",
+      "interface": "Alexa.EndpointHealth",
+      "version": "3",
+      "properties": {
+        "supported": [
+          {
+            "name":"connectivity"
+          }
+        ],
+        "proactivelyReported": true,
+        "retrievable": true
+      }
+    }],
+    // not used at this time
+    cookie: {
+        },
+    };
+}
+
+
+function handleThermObj(obj) {
+    return {
+        endpointId:obj.IDNumber,
+        manufacturerName:"Idratek",
+        version: '1.0',
+        friendlyName:obj.FriendlyName,
+        description:obj.FriendlyName + " on Idratek",
+        displayCategories: [
+            "THERMOSTAT"
+        ],
+        capabilities:[{
+            type: "AlexaInterface",
+            interface: "Alexa.ThermostatController",
+            version: "3",
+            properties: {
+                supported: [{
+                    name: "targetSetpoint"
                 },
-            };
+                {
+                    name: "thermostatMode"
+                }],
+                proactivelyReported: true,
+                retrievable: true
+            },
+              "configuration": {
+                "supportedModes": [ "HEAT" ],
+                "supportsScheduling": false
+              }
+        },
+        {
+            type: "AlexaInterface",
+            interface: "Alexa.TemperatureSensor",
+            version: "3",
+            properties: {
+                supported: [{
+                    name: "temperature"
+                }],
+                proactivelyReported: true,
+                retrievable: true
+            }
+        },
+        {
+          "type": "AlexaInterface",
+          "interface": "Alexa.EndpointHealth",
+          "version": "3",
+          "properties": {
+            "supported": [
+              {
+                "name":"connectivity"
+              }
+            ],
+            "proactivelyReported": true,
+            "retrievable": true
+          }
+        }],
+        // not used at this time
+        cookie: {
+            },
+        };
 }
 
 
@@ -260,26 +368,54 @@ function isDeviceOnline(applianceId) {
     return true;
 }
 
-
+// NB: Port 13 is primarily for light dimmers
+//TODO - is this used
 function getState(applianceId) {
     log('DEBUG', `getState (applianceId: ${applianceId})`);
-
     const CRequest = doHttpReqProm("GET",`Ports.json/${applianceId}/13`);
     return CRequest
         .then(handleObjState)
         .catch(handleErrors);
-    // Call device cloud's API to set percentage delta
 }
 
+//deal with state dependent on device type
+//NB: this is primarily for light
 function handleObjState(state) {
     log('DEBUG', `handleState : ${state}`);
     let parsed = JSON.parse(state);
-    let percentage = parsed["CortexAPI"]["PortEvent"]["Value"];
+    let val = parsed["CortexAPI"]["PortEvent"]["Value"];
     let onOff = parsed["CortexAPI"]["PortEvent"]["State"]=="True"?"ON":"OFF";
-    let context=generateContext('Alexa.BrightnessController','brightness', percentage);
+    let context=generateContext('Alexa.BrightnessController','brightness', val);
     context.properties.push(generateProperty('Alexa.PowerController','powerState',onOff));
     return context;
-    // Call device cloud's API to set percentage delta
+}
+
+
+//deal with state dependent on device type
+function handleTempObjState(state) {
+    log('DEBUG', `handleTempObjState : ${state}`);
+    let parsed = JSON.parse(state);
+    let val = parsed["CortexAPI"]["PortEvent"]["Value"];
+    let onOff = parsed["CortexAPI"]["PortEvent"]["State"]=="True"?"ON":"OFF";
+    let context=generateContext('Alexa.TemperatureSensor','temperature', {value:val, scale:"CELSIUS"});
+     //context.properties.push(generateProperty('Alexa.PowerController','powerState',onOff));
+    return context;
+}
+
+
+//deal with state dependent on device type
+function handleThermObjState(state) {
+    log('DEBUG', `handleThermObjState : ${state}`);
+    let parsed = JSON.parse(state);
+    // TODO - the regex could also identify C or F
+    let repString = parsed["CortexAPI"]["CortexObject"]["ReportString"];
+    let find = repString.match(/([0-9\.]+)/g); //find any sets of numbers - incl after decimal point
+    let setP = Number(find[0]);
+    let temp = Number(find[1]);
+    let context=generateContext('Alexa.ThermostatController','thermostatMode', "HEAT");
+    context.properties.push(generateProperty('Alexa.ThermostatController','targetSetpoint',{value:setP, scale:"CELSIUS"}));
+    context.properties.push(generateProperty('Alexa.TemperatureSensor','temperature', {value:temp, scale:"CELSIUS"}));
+   return context;
 }
 
 /**
@@ -431,6 +567,50 @@ function handleControl(request, callback) {
         }
         
 
+        case 'SetTargetTemperature': {  //"PortNumber": "31", "Description": "Heating temporary change Set-point value",
+            const temp = request.directive.payload.targetSetpoint.value;
+            if (!temp) {
+                const payload = { faultingParameter: `targetSetpoint: ${temp}` };
+                callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
+                return;
+            }
+            command = `Objects.json/${applianceId}?31=${temp}`;
+            namespace='Alexa.ThermostatController';
+            name='targetSetpoint';
+            value={value:temp, scale:"CELSIUS"};
+            break;
+        }
+        
+
+        case 'AdjustTargetTemperature': {
+          /* 
+            "PortNumber": "13", "Description": "Heating Reduce temperature"
+            "PortNumber": "12", "Description": "Heating Increase temperature"
+            "PortNumber": "11", "Description": "Heating Reduce setting" 0.5C
+            "PortNumber": "10", "Description": "Heating Increase setting" 0.5C
+          */
+
+            const tempdiff = request.directive.payload.targetSetpointDelta.value;
+            if (!tempdiff) {
+                const payload = { faultingParameter: `targetSetpointDelta: ${tempdiff}` };
+                callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
+                return;
+            }
+            if (tempdiff>0) {
+                command = `Objects.json/${applianceId}?10=1`;
+                log('DEBUG', `Temp Up Confirmation`);
+            } else {
+                command = `Objects.json/${applianceId}?11=1`;
+                log('DEBUG', `Temp Down Confirmation`);
+            }
+
+            namespace='Alexa.ThermostatController';
+            name='targetSetpointDelta';
+            value={value:tempdiff, scale:"CELSIUS"};
+            break;
+        }
+        
+
 /*        
 no longer used
 
@@ -443,8 +623,11 @@ no longer used
             }
             if (delta>0){
                 context = incrementPercentage(applianceId, userAccessToken, delta); port 11
+
             } else {
                 context = decrementPercentage(applianceId, userAccessToken, delta); port 12
+                log('DEBUG', `Temp Down Confirmation: ${JSON.stringify({context})}`);
+
             }
             break;
         }
@@ -513,7 +696,7 @@ function handleQuery(request, callback) {
         return;
     }
 
-    let context,event;
+    let context,event,port, objtype;
     //get the state of the endpoint
 
     if (request.directive.header.name != 'ReportState'){
@@ -522,14 +705,53 @@ function handleQuery(request, callback) {
         return;
     }
     
-    doHttpReqProm("GET",`Ports.json/${applianceId}/13`)
+
+    // NB each device object type uses different ports, so must first determine object type (e.g. Port 13 is primarily for light dimmer)
+    doHttpReqProm("GET",`Objects/${applianceId}`)
     .then(function(reply){ //ensure function does not run ahead until details recieved
-        context = handleObjState(reply);
-        event=generateEvent("StateReport", applianceId, userAccessToken,correlationToken,{});
-        log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
-        callback(null, {context,event});
+        let parsed = JSON.parse(reply);
+        objtype = parsed["CortexAPI"]["CortexObject"]["ControlObjectType"];
+
+        switch (objtype) {
+            case 'IdratekDimmer1':  //13: brightness level
+                doHttpReqProm("GET",`Ports/${applianceId}/13`)
+                .then(function(reply){ //ensure function does not run ahead until details recieved
+                    context = handleObjState(reply);
+                    event=generateEvent("StateReport", applianceId, userAccessToken,correlationToken,{});
+                    log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
+                    callback(null, {context,event});
+                })
+                .catch(handleErrors);
+                break;
+    
+            case 'Temperature':  // 0:"Temperature Output"
+                doHttpReqProm("GET",`Ports/${applianceId}/0`)
+                .then(function(reply){ //ensure function does not run ahead until details recieved
+                    context = handleTempObjState(reply);
+                    event=generateEvent("StateReport", applianceId, userAccessToken,correlationToken,{});
+                    log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
+                    callback(null, {context,event});
+                })
+                .catch(handleErrors);
+                break;  
+
+            case 'HVAC': // 46: "Heating Setpoint (Output)"   NB: 31: "Heating temporary change Set-point value"
+                // We already get the response data in the HVAC Objects Idratek call "ReportString": "H = 19.50C, T = 18.97C.\n" so reuse that reply
+                context = handleThermObjState(reply);
+                event=generateEvent("StateReport", applianceId, userAccessToken,correlationToken,{});
+                log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
+                callback(null, {context,event});
+                break;  
+   
+            default: 
+            //TODO something
+        }
+
     })
-    .catch(handleErrors);
+    .catch(handleErrors); 
+
+
+
 }
 
 
@@ -547,8 +769,9 @@ exports.handler = (request, context, callback) => {
             handleDiscovery(request, callback);
             break;
 
-        case 'Alexa.BrightnessController':
-        case 'Alexa.PowerController':
+            case 'Alexa.BrightnessController':
+            case 'Alexa.PowerController':
+            case 'Alexa.ThermostatController':
             handleControl(request, callback);
             break;
 
