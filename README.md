@@ -13,8 +13,9 @@ It also works quite well with the Alexa App
 <img src="alexa_app1.jpg" height="250"> <img src="alexa_app2.jpg" height="250"> <img src="alexa_app3.jpg" height="250">
 -----
 This is set up to be hosted in lambda and requires 3 Environment variables to allow access to Idratek web server.
-+ HOST_IP = exposed IP address (ideally static IP address) of your Idratek web server
-+ HOST_UNAME = idratek web username (must have web API permissions to objects you expect to control)
++ HOST_IP = exposed IP address (ideally static IP address) of your Cortex web server
++ HOST_PORT = port assigned to your Cortex web server
++ HOST_UNAME = Cortex web username (must have web API permissions to objects you expect to control)
 + HOST_UPASS = password
 
 Log in to the Alexa developer console
