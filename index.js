@@ -126,13 +126,14 @@ function doHttpReqProm(reqType, command) {
     var http = require('http');
     log("HTTP request", command);
     let hostip = process.env.HOST_IP;
+    let hostport = process.env.HOST_PORT;
     let hostuname = process.env.HOST_UNAME;
     let hostupass = process.env.HOST_UPASS;
 
     var options = {
       host: ''+hostip,
       path: '/api/v1/'+command,
-      port: '1087',
+      port: ''+hostport,
       method: ''+reqType,
       auth: hostuname + ':' + hostupass,
       headers: {
