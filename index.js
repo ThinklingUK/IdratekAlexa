@@ -19,19 +19,12 @@ function log(title, msg) {
 
 /**
  * Generate a unique message ID
- *
- * TODO: UUID v4 is recommended as a message ID in production.
  */
-function generateMessageID() {
-    const AWS = require('aws-sdk');
-    return AWS.util.uuid.v4();
-    
-    //const uuidv4 = require('uuid/v4');  //original working version
-    //const {"v4": uuidv4} = require('uuid');
-    //import {v4 as uuidv4} from 'uuid';
 
-    //return '38A28869-DD5E-48CE-BBE5-A4DB78CECB28'; // Dummy
-    //return uuidv4(); // Dummy
+// change from nodejs 16 to 22 (and aws-sdk changed from V2 to V3 )
+function generateMessageID() {
+    const { randomUUID: AWS_util_uuid_v4 } = require('crypto');
+    return AWS_util_uuid_v4();
 }
 
 /**
@@ -112,14 +105,68 @@ function generateEvent(name, endpointId, token, payload) {
 }
 
 /**
+ * Perform HTTP request on Alexa API API, e.g. GET /v1/alerts/reminders
+ *
+ * @param {string} reqtype - Get or POST
+ * @param {string} command - URL to pass in (beware injection)
+ * @returns {string} HTTP: Response string
+ */
+ /* this is a promise - must reject or resolve */
+/* command can be Objects, Ports or Properties */
+function doAlexaHttpReqProm(reqType, command, token, context) {
+    return new Promise (function (resolve,reject){
+    var http = require('http');
+    log("HTTP request", command);
+
+    var options = {
+      host: 'api.amazonalexa.com',
+      path: ''+command,
+      port: ''+80,
+      method: ''+reqType,
+      auth: token,
+      headers: {
+        'Content-Type': 'application/json'
+        /*,
+        'Content-Length': Buffer.byteLength("") */
+      }
+    };
+    
+    log('DEBUG', `Reminders Request: ${JSON.stringify(options)}`);
+
+    var req = http.request(options, function(response) {
+      // handle the response
+      var res_data = '';
+      response.on('data', function(chunk) {
+        res_data += chunk;
+      });
+      
+      response.on('end', function() {
+        log("HTTP response", res_data);
+        resolve(res_data);
+      });
+
+    });
+    
+    req.on('error', function(e) {
+      log("Cortex error: ", e.message);
+      reject(e.message);
+    });
+    
+    req.write("");
+    req.end();
+    });
+}
+
+
+
+/**
  * Perform HTTP request on cortex API
  *
  * @param {string} reqtype - Get or POST
  * @param {string} command - URL to pass in (beware injection)
  * @returns {string} HTTP: Response string
  */
- 
-/* this is a promise - must reject or resolve */
+ /* this is a promise - must reject or resolve */
 /* command can be Objects, Ports or Properties */
 function doHttpReqProm(reqType, command) {
     return new Promise (function (resolve,reject){
@@ -142,8 +189,6 @@ function doHttpReqProm(reqType, command) {
       }
     };
     
-
-
     var req = http.request(options, function(response) {
       // handle the response
       var res_data = '';
@@ -250,12 +295,14 @@ function handleLightObj(obj) {
 
 
 function handleTempObj(obj) {
+    const shortfriendly = obj.FriendlyName.substring(0,16);
 
     return {
         endpointId:obj.IDNumber,
         manufacturerName:"Idratek",
         version: '1.0',
-        friendlyName:obj.FriendlyName,
+ //       friendlyName:obj.FriendlyName, trim down '... Temperature' names
+        friendlyName:shortfriendly,
         description:obj.FriendlyName + " on Idratek",
         displayCategories: [
             "TEMPERATURE_SENSOR"
@@ -592,55 +639,57 @@ function handleControl(request, callback) {
         
 
         case 'AdjustTargetTemperature': {
-          /* 
-            "PortNumber": "13", "Description": "Heating Reduce temperature"
-            "PortNumber": "12", "Description": "Heating Increase temperature"
-            "PortNumber": "11", "Description": "Heating Reduce setting" 0.5C
-            "PortNumber": "10", "Description": "Heating Increase setting" 0.5C
-          */
-
-            const tempdiff = request.directive.payload.targetSetpointDelta.value;
-            if (!tempdiff) {
-                const payload = { faultingParameter: `targetSetpointDelta: ${tempdiff}` };
-                callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
-                return;
-            }
-            if (tempdiff>0) {
-                command = `Objects.json/${applianceId}?10=1`;
-                log('DEBUG', `Temp Up Confirmation`);
-            } else {
-                command = `Objects.json/${applianceId}?11=1`;
-                log('DEBUG', `Temp Down Confirmation`);
-            }
-
-            namespace='Alexa.ThermostatController';
-            name='targetSetpointDelta';
-            value={value:tempdiff, scale:"CELSIUS"};
-            break;
-        }
-        
-
-        /*        
-        no longer used
-        case 'AdjustBrightness': {
-            const delta = request.directive.payload.brightnessDelta.value;
-            if (!delta) {
-                const payload = { faultingParameter: `deltaPercentage: ${delta}` };
-                callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
-                return;
-            }
-            if (delta>0){
-                context = incrementPercentage(applianceId, userAccessToken, delta); port 11
-
-            } else {
-                context = decrementPercentage(applianceId, userAccessToken, delta); port 12
-                log('DEBUG', `Temp Down Confirmation: ${JSON.stringify({context})}`);
-
-            }
-            break;
-        }
-        
-        */
+            /* 
+              "PortNumber": "13", "Description": "Heating Reduce temperature"
+              "PortNumber": "12", "Description": "Heating Increase temperature"
+              "PortNumber": "11", "Description": "Heating Reduce setting" 0.5C
+              "PortNumber": "10", "Description": "Heating Increase setting" 0.5C
+            */
+  
+              const delta = request.directive.payload.targetSetpointDelta.value;
+              if (!delta) {
+                  const payload = { faultingParameter: `targetSetpointDelta: ${delta}` };
+                  callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
+                  return;
+              }
+              if (delta>0) {
+                  command = `Objects.json/${applianceId}?10=1`;
+                  log('DEBUG', `Temp Up Confirmation`);
+              } else {
+                  command = `Objects.json/${applianceId}?11=1`;
+                  log('DEBUG', `Temp Down Confirmation`);
+              }
+  
+              namespace='Alexa.ThermostatController';
+              name='targetSetpointDelta';
+              value={value:delta, scale:"CELSIUS"};
+              break;
+          }
+          
+  
+ 
+          case 'AdjustBrightness': {
+  
+              const delta = request.directive.payload.targetSetpointDelta.value;
+              if (!delta) {
+                  const payload = { faultingParameter: `targetSetpointDelta: ${delta}` };
+                  callback(null, generateResponse('UnexpectedInformationReceivedError', payload));
+                  return;
+              }
+              if (delta>0) {
+                  command = `Objects.json/${applianceId}?11=1`;
+                  log('DEBUG', `Brightness Up Confirmation`);
+              } else {
+                  command = `Objects.json/${applianceId}?12=1`;
+                  log('DEBUG', `Brightness Down Confirmation`);
+              }
+  
+              namespace='Alexa.BrightnessController';
+              name='brightness';
+              value=delta;
+              break;
+          }
+          
 
         default: {
             log('ERROR', `No supported directive name: ${request.directive.header.name}`);
@@ -669,7 +718,7 @@ function handleControl(request, callback) {
  * @param {Object} request - The full request object from the Alexa smart home service.
  * @param {function} callback - The callback object on which to succeed or fail the response.
  */
-function handleQuery(request, callback) {
+function handleQuery(request, reqContext, callback) {
     log('DEBUG', `Query Request: ${JSON.stringify(request)}`);
 
     /**
@@ -677,7 +726,6 @@ function handleQuery(request, callback) {
      */
     const userAccessToken = request.directive.endpoint.scope.token.trim();
     const correlationToken = request.directive.header.correlationToken.trim();
-
 
     if (!userAccessToken || !isValidToken(userAccessToken)) {
         log('ERROR', `Discovery Request [${request.header.messageId}] failed. Invalid access token: ${userAccessToken}`);
@@ -704,7 +752,7 @@ function handleQuery(request, callback) {
         return;
     }
 
-    let context,event,port, objtype;
+    let context,event,port,objtype;
     //get the state of the endpoint
 
     if (request.directive.header.name != 'ReportState'){
@@ -732,7 +780,18 @@ function handleQuery(request, callback) {
                 .catch(handleErrors);
                 break;
     
-            case 'Temperature':  // 0:"Temperature Output"
+            case 'vTemperature':  // does not exist - used for testing
+                doAlexaHttpReqProm("GET",`/v1/alerts/reminders`, userAccessToken, reqContext)
+                .then(function(reply){ //ensure function does not run ahead until details recieved
+                    context = handleTempObjState(reply);
+                    event=generateEvent("StateReport", applianceId, userAccessToken, correlationToken,{});
+                    log('DEBUG', `Request Confirmation: ${JSON.stringify({context,event})}`);
+                    callback(null, {context,event});
+                })
+                .catch(handleErrors);
+                break;  
+    
+            case 'Temperature':  // 0:"Temperature Output" 
                 doHttpReqProm("GET",`Ports/${applianceId}/0`)
                 .then(function(reply){ //ensure function does not run ahead until details recieved
                     context = handleTempObjState(reply);
@@ -757,10 +816,8 @@ function handleQuery(request, callback) {
 
     })
     .catch(handleErrors); 
-
-
-
 }
+
 
 
 /**
@@ -771,20 +828,20 @@ function handleQuery(request, callback) {
  *  https://github.com/alexa/alexa-smarthome-validation
  */
 exports.handler = (request, context, callback) => {
-   // switch (request.header.namespace) {
+
     switch (request.directive.header.namespace) {
         case 'Alexa.Discovery':
             handleDiscovery(request, callback);
             break;
 
-            case 'Alexa.BrightnessController':
-            case 'Alexa.PowerController':
-            case 'Alexa.ThermostatController':
+        case 'Alexa.BrightnessController':
+        case 'Alexa.PowerController':
+        case 'Alexa.ThermostatController':
             handleControl(request, callback);
             break;
 
         case 'Alexa':
-            handleQuery(request, callback);
+            handleQuery(request, context, callback);
             break;
 
         default: {
