@@ -48,12 +48,12 @@ Support Account Linking (e.g. via Login With Amazon)
 + Back in the Alexa developer console for the skill, go to account linking
 + add in the LWA Authorization URI: https://www.amazon.com/ap/oa
 + add in the Access Token URI: https://api.amazon.com/auth/o2/token
-+ add you Client ID and Secret from LWA
++ add your Client ID and Secret from LWA
 + grab a copy of the Alexa Rediect URLs and add these back into your LWA 'Allowed Return URLs'
 
-Testing in the alexa develope console will only work once you have enabled the skillin your Alexa App
+Testing in the Alexa Developer Console will only work once you have enabled the skillin your Alexa App
 
 In your Alexa App, add the skill and enable it - this should go through the account linking process.
 Also go to Skills, scroll down to 'My Skills' and in the boxes at the top croll right to 'Dev' to renable and link etc.
 
-there is some good advice on https://github.com/alexa-samples/alexa-smarthome/wiki/Build-a-Working-Smart-Home-Skill-in-15-Minutes 
+There is some good advice on https://github.com/alexa-samples/alexa-smarthome/wiki/Build-a-Working-Smart-Home-Skill-in-15-Minutes 
