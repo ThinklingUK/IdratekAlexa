@@ -19,6 +19,7 @@ This is set up to be hosted in lambda and requires 4 Environment variables to al
 + HOST_UPASS = password
 
 Try testing, but don't use the SmartHome Discovery Test, use the following
+```
 {
   "directive": {
     "header": {
@@ -35,6 +36,7 @@ Try testing, but don't use the SmartHome Discovery Test, use the following
     }
   }
 }
+```
 
 Log in to the Alexa developer console
 + Create a new skill (smart home)
